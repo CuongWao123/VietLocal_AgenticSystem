@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Annotated, Sequence
+from typing import Annotated, Sequence , Optional
 from langchain_core.messages import AnyMessage
 from langgraph.graph import add_messages
 
@@ -15,4 +15,5 @@ class State:
     messages: Annotated[Sequence[AnyMessage], add_messages] = field(
         default_factory=list
     )
+    next_agent: Optional[str] = None
     

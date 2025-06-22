@@ -15,69 +15,104 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph
 from langchain_openai import ChatOpenAI
 from langgraph.types import Command
-
+from langgraph.graph import StateGraph, START, END
 from agent.Configuration import Configuration
 from agent.State import State  
 from agent.Tools import TOOLS  # Import tools if needed  
 
 llm = ChatOpenAI(model = "gpt-4o-mini" , temperature=0.7)
 
-
-def supervisor(state: State) -> Command[Literal["agent_1", "agent_2", END]]:
-    """Decide which agent to call next, or end the process."""
+# ── 3. Nodes -----------------------------------------------------------------
+def supervisor(state: State) -> Literal["agent_1", "agent_2", "__end__"]:
+    """Route to agent_1 / agent_2 or stop."""
     history = state.messages
 
-    response: AIMessage = llm.invoke(
+    resp: AIMessage = llm.invoke(
         [
             {
                 "role": "system",
                 "content": (
-                    "You are the supervisor. Based on the conversation so far, decide the next agent.\n"
-                    "Agent 1:Focused on answering general knowledge questions."
-                    "Agent 2:Focused on analysis and strategic advice."
-                    "Only return JSON: {\"next_agent\": \"agent_1\" | \"agent_2\" | \"__end__\"}"
+                    """
+                        You are a supervisor managing two agents:
+                        - Use agent_1 for general knowledge
+                        - Use agent_2 for strategy/analysis
+                        - Only return __end__ if the user query is fully answered.
+                        - Assign work to one agent at a time, do not call agents in parallel.
+                        - Do not do any work yourself. 
+                        Return only a valid **JSON** object in this format:
+                        {\"next_agent\": \"agent_1\" | \"agent_2\" | \"__end__\"}
+
+            """
                 ),
             },
             *history,
         ],
         response_format={"type": "json_object"},
     )
-    print(response)
-    parsed = json.loads(response.content)
-    next_agent: str = parsed["next_agent"]
-    return Command(goto=next_agent)
 
-def agent_1(state: State) -> Command[Literal["supervisor"]]:
-    """Focused on answering general knowledge questions."""
+    next_agent = json.loads(resp.content)["next_agent"]
+    print(next_agent)
+    return  {"next_agent" : next_agent}   # <─ key for conditional edges
+
+
+def agent_1(state: State) -> Dict[str, Any]:
+    """General-knowledge responder."""
     history = state.messages
     reply: AIMessage = llm.invoke(
         [
-            {"role": "system", "content": "You are Agent 1, specialized in general knowledge queries."},
+            {"role": "system", "content": "You are Agent 1, specialised in general knowledge."},
             *history,
         ]
     )
-    return Command(goto="supervisor", update={"messages": [reply]})
+    return {"messages": [reply] , 
+            "next_agent": "supervisor"
+            }        # merged into state via add_messages
 
-def agent_2(state: State) -> Command[Literal["supervisor"]]:
-    """Focused on analysis and strategic advice."""
+
+def agent_2(state: State) -> Dict[str, Any]:
+    """Analysis / strategy responder."""
     history = state.messages
     reply: AIMessage = llm.invoke(
         [
-            {"role": "system", "content": "You are Agent 2, specialized in analysis and strategic guidance."},
+            {"role": "system", "content": "You are Agent 2, specialised in analysis and strategy."},
             *history,
         ]
     )
-    return Command(goto="supervisor", update={"messages": [reply]})
+    return {"messages": [reply],
+            "next_agent": "supervisor"
+            }
 
-# ── Build LangGraph workflow ────────────────────────────────────────────────
+
+# ── 4. Build the graph -------------------------------------------------------
 builder = StateGraph(State)
 
-builder.add_node("supervisor", supervisor)
+# Add nodes
+builder.add_node("supervisor", supervisor )
 builder.add_node("agent_1", agent_1)
 builder.add_node("agent_2", agent_2)
 
-# Define entry point
-builder.set_entry_point("supervisor")
-# The supervisor will dynamically decide which agent to call next
+# Static edges
 
-graph = builder.compile(name="Supervisor-with-two-agents")
+builder.set_entry_point("supervisor")
+builder.add_edge("agent_1", "supervisor")
+builder.add_edge("agent_2", "supervisor")
+
+def routing_condition(state: State) -> str:
+    return state.next_agent if hasattr(state, "next_agent") else "__end__"
+    
+
+# Conditional edges from supervisor
+builder.add_conditional_edges(
+    "supervisor",
+    routing_condition
+    ,
+    {
+        "agent_1": "agent_1",
+        "agent_2": "agent_2",
+        "__end__": END,
+    }
+)
+
+graph = builder.compile(name="Supervisor-with-two-agents-edges")
+
+
