@@ -1,3 +1,4 @@
+
 """This module provides example tools for web scraping and search functionality.
 
 It includes a basic Tavily search function (as an example)
@@ -8,9 +9,8 @@ consider implementing more robust and specialized tools tailored to your needs.
 
 from typing import Any, Callable, List, Optional, cast
 
-from langchain_tavily import TavilySearch  # type: ignore[import-not-found]
 
-from react_agent.configuration import Configuration
+# define the tool for agent 
 
 
 async def search(query: str) -> Optional[dict[str, Any]]:
@@ -20,9 +20,9 @@ async def search(query: str) -> Optional[dict[str, Any]]:
     to provide comprehensive, accurate, and trusted results. It's particularly useful
     for answering questions about current events.
     """
-    configuration = Configuration.from_context()
-    wrapped = TavilySearch(max_results=configuration.max_search_results)
-    return cast(dict[str, Any], await wrapped.ainvoke({"query": query}))
+    print(f"=====================Searching for: {query}======================")
+    return "this tool can search the web for you, but it is not implemented yet"
 
 
-TOOLS: List[Callable[..., Any]] = [search]
+
+TOOLS: List[Callable[..., Any]] = [search ]
