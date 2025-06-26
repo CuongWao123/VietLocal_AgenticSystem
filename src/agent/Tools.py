@@ -13,16 +13,14 @@ from typing import Any, Callable, List, Optional, cast
 # define the tool for agent 
 
 
-async def search(query: str) -> Optional[dict[str, Any]]:
-    """Search for general web results.
+def search_web() : 
+    """This tool can search web for information."""
+    return "Hue Lightstrip Plus 2m - White and Color Ambiance - Smart LED Light Strip, Works with Alexa, Google Assistant, and Apple HomeKit (Compatible with Philips Hue Hub) - 1 Pack"
 
-    This function performs a search using the Tavily search engine, which is designed
-    to provide comprehensive, accurate, and trusted results. It's particularly useful
-    for answering questions about current events.
-    """
-    print(f"=====================Searching for: {query}======================")
-    return "this tool can search the web for you, but it is not implemented yet"
+def query_database() :
+    """This tool can query a database for information."""
+    return "Database query result: Hue Lightstrip Plus 2m - White and Color Ambiance - Smart LED Light Strip, Works with Alexa, Google Assistant, and Apple HomeKit (Compatible with Philips Hue Hub) - 1 Pack"
 
 
-
-TOOLS: List[Callable[..., Any]] = [search ]
+TOOLS1: List[Callable[..., Any]] = [search_web] 
+TOOLS2: List[Callable[..., Any]] = [query_database ]
